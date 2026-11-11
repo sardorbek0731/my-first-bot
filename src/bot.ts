@@ -8,6 +8,13 @@ const bot = new Bot(token);
 
 type Task = { id: number; text: string };
 
+function escapeHtml(text: string): string {
+  return text
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
+}
+
 bot.command("start", (ctx) => {
   const keyboard = new InlineKeyboard()
     .text("🍎 Olma", "meva-olma")
@@ -22,7 +29,16 @@ bot.command("start", (ctx) => {
 });
 
 bot.command("help", (ctx) =>
-  ctx.reply("Hozircha men faqat /start va /help komandalarini bilaman."),
+  ctx.reply(
+    [
+      "<b>Men nima qila olaman?</b>",
+      "",
+      "/add <i>matn</i> — vazifa qo'shish",
+      "/list — vazifalar ro'yxati",
+      "/start — botni boshlash",
+    ].join("\n"),
+    { parse_mode: "HTML" },
+  ),
 );
 
 bot.command("add", (ctx) => {
