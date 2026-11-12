@@ -10,7 +10,10 @@ import { db } from "./db";
 const token = process.env.BOT_TOKEN;
 if (!token) throw new Error("BOT_TOKEN topilmadi (.env faylni tekshiring)");
 
-type SessionData = { step: "idle" | "waiting_task" };
+type SessionData = {
+  step: "idle" | "waiting_task" | "waiting_due";
+  draftText?: string;
+};
 type MyContext = Context & SessionFlavor<SessionData>;
 
 const bot = new Bot<MyContext>(token);
@@ -21,7 +24,7 @@ bot.use(
   }),
 );
 
-type Task = { id: number; text: string };
+type Task = { id: number; text: string; due: string | null };
 
 function escapeHtml(text: string): string {
   return text
@@ -84,6 +87,7 @@ bot.command("new", (ctx) => {
 
 bot.command("cancel", (ctx) => {
   ctx.session.step = "idle";
+  ctx.session.draftText = undefined;
   return ctx.reply("Bekor qilindi ❌");
 });
 
@@ -93,7 +97,7 @@ bot.command("list", (ctx) => {
   if (!userId) return;
 
   const list = db
-    .prepare("SELECT id, text FROM tasks WHERE user_id = ? ORDER BY id")
+    .prepare("SELECT id, text, due FROM tasks WHERE user_id = ? ORDER BY id")
     .all(userId) as Task[];
 
   if (list.length === 0) {
@@ -102,7 +106,12 @@ bot.command("list", (ctx) => {
 
   const keyboard = new InlineKeyboard();
   list.forEach((task) => {
-    keyboard.text(`❌ ${task.text}`, `del-${task.id}`).row();
+    keyboard
+      .text(
+        `❌ ${task.text} ${task.due ? `(${task.due})` : ""}`,
+        `del-${task.id}`,
+      )
+      .row();
   });
   keyboard.text("🗑 Hammasini o'chirish", "clear-all");
   return ctx.reply("Sizning vazifalaringiz (o'chirish uchun bosing):", {
@@ -111,16 +120,33 @@ bot.command("list", (ctx) => {
 });
 
 bot.on("message:text", (ctx) => {
-  if (ctx.session.step === "waiting_task") {
-    const text = ctx.message.text.trim();
+  const input = ctx.message.text.trim();
 
-    db.prepare("INSERT INTO tasks (user_id, text) VALUES (?, ?)").run(
+  if (ctx.session.step === "waiting_task") {
+    ctx.session.draftText = input;
+    ctx.session.step = "waiting_due";
+    return ctx.reply("Muddatini yozing (muddat yo'q bo'lsa: -):");
+  }
+
+  if (ctx.session.step === "waiting_due") {
+    const text = ctx.session.draftText;
+    if (!text) {
+      ctx.session.step = "idle";
+      return ctx.reply("Xatolik yuz berdi, /new dan qayta boshlang.");
+    }
+
+    const due = input === "-" ? null : input;
+
+    db.prepare("INSERT INTO tasks (user_id, text, due) VALUES (?, ?, ?)").run(
       ctx.from.id,
       text,
+      due,
     );
 
     ctx.session.step = "idle";
-    return ctx.reply(`Qo'shildi ✅ ${text}`);
+    ctx.session.draftText = undefined;
+
+    return ctx.reply(`Qo'shildi ✅ ${text}${due ? ` (${due})` : ""}`);
   }
 
   return ctx.reply("Komanda tanlang: /help");
@@ -148,7 +174,7 @@ bot.callbackQuery(/^del-(\d+)$/, async (ctx) => {
   await ctx.answerCallbackQuery({ text: "O'chirildi 🗑" });
 
   const list = db
-    .prepare("SELECT id, text FROM tasks WHERE user_id = ? ORDER BY id")
+    .prepare("SELECT id, text, due FROM tasks WHERE user_id = ? ORDER BY id")
     .all(userId) as Task[];
 
   if (list.length === 0) {
@@ -158,7 +184,12 @@ bot.callbackQuery(/^del-(\d+)$/, async (ctx) => {
 
   const keyboard = new InlineKeyboard();
   list.forEach((task) => {
-    keyboard.text(`❌ ${task.text}`, `del-${task.id}`).row();
+    keyboard
+      .text(
+        `❌ ${task.text} ${task.due ? `(${task.due})` : ""}`,
+        `del-${task.id}`,
+      )
+      .row();
   });
   await ctx.editMessageText(
     "Sizning vazifalaringiz (o'chirish uchun bosing):",

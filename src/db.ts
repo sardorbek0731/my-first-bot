@@ -9,3 +9,10 @@ db.exec(`
     text    TEXT    NOT NULL
   )
 `);
+
+const columns = db.prepare("PRAGMA table_info(tasks)").all() as {
+  name: string;
+}[];
+if (!columns.some((c) => c.name === "due")) {
+  db.exec("ALTER TABLE tasks ADD COLUMN due TEXT");
+}
