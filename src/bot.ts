@@ -1,10 +1,25 @@
-import { Bot, InlineKeyboard } from "grammy";
+import {
+  Bot,
+  Context,
+  InlineKeyboard,
+  session,
+  type SessionFlavor,
+} from "grammy";
 import { db } from "./db";
 
 const token = process.env.BOT_TOKEN;
 if (!token) throw new Error("BOT_TOKEN topilmadi (.env faylni tekshiring)");
 
-const bot = new Bot(token);
+type SessionData = { step: "idle" | "waiting_task" };
+type MyContext = Context & SessionFlavor<SessionData>;
+
+const bot = new Bot<MyContext>(token);
+
+bot.use(
+  session({
+    initial: (): SessionData => ({ step: "idle" }),
+  }),
+);
 
 type Task = { id: number; text: string };
 
@@ -62,7 +77,18 @@ bot.command("add", (ctx) => {
   return ctx.reply(`Qo'shildi ✅ Jami vazifalar: ${row.count}`);
 });
 
+bot.command("new", (ctx) => {
+  ctx.session.step = "waiting_task";
+  return ctx.reply("Vazifa nomini yozing:");
+});
+
+bot.command("cancel", (ctx) => {
+  ctx.session.step = "idle";
+  return ctx.reply("Bekor qilindi ❌");
+});
+
 bot.command("list", (ctx) => {
+  ctx.session.step = "idle";
   const userId = ctx.from?.id;
   if (!userId) return;
 
@@ -84,9 +110,21 @@ bot.command("list", (ctx) => {
   });
 });
 
-bot.on("message:text", (ctx) =>
-  ctx.reply(`Siz yozdingiz: ${ctx.message.text}`),
-);
+bot.on("message:text", (ctx) => {
+  if (ctx.session.step === "waiting_task") {
+    const text = ctx.message.text.trim();
+
+    db.prepare("INSERT INTO tasks (user_id, text) VALUES (?, ?)").run(
+      ctx.from.id,
+      text,
+    );
+
+    ctx.session.step = "idle";
+    return ctx.reply(`Qo'shildi ✅ ${text}`);
+  }
+
+  return ctx.reply("Komanda tanlang: /help");
+});
 
 bot.callbackQuery(/^meva-(.+)$/, async (ctx) => {
   const mevaRaw = ctx.match[1]; // Masalan: "olma"
@@ -145,6 +183,8 @@ async function main() {
     { command: "help", description: "Yordam" },
     { command: "add", description: "Vazifa qo'shish: /add matn" },
     { command: "list", description: "Vazifalar ro'yxati" },
+    { command: "new", description: "Vazifa qo'shish (bosqichma-bosqich)" },
+    { command: "cancel", description: "Amalni bekor qilish" },
   ]);
 
   console.log("Bot ishga tushdi ✅");
