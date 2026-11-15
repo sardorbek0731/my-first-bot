@@ -4,7 +4,7 @@ import { db, getTasks, type Task } from "../db";
 import { formatDue, isOverdue } from "../dates";
 
 export const MAX_TASK_LENGTH = 100;
-export const LIST_TITLE = "Vazifalar (nomini bossangiz: bajarildi, 🗑: o'chirish):";
+const LIST_TITLE = "Vazifalar (nomini bossangiz: bajarildi, 🗑: o'chirish):";
 
 const PAGE_SIZE = 5;
 
@@ -20,7 +20,7 @@ function paginate<T>(items: T[], page: number) {
   };
 }
 
-export function buildTaskKeyboard(list: Task[], page = 1): InlineKeyboard {
+function buildTaskKeyboard(list: Task[], page = 1): InlineKeyboard {
   const view = paginate(list, page);
   const keyboard = new InlineKeyboard();
 
@@ -90,4 +90,67 @@ bot.command("list", (ctx) => {
   return ctx.reply(LIST_TITLE, {
     reply_markup: buildTaskKeyboard(list),
   });
+});
+
+bot.callbackQuery(/^del-(\d+)-(\d+)$/, async (ctx) => {
+  const userId = ctx.from.id;
+  const taskId = Number(ctx.match[1]);
+  const page = Number(ctx.match[2]);
+
+  db.prepare("DELETE FROM tasks WHERE id = ? AND user_id = ?").run(
+    taskId,
+    userId,
+  );
+
+  await ctx.answerCallbackQuery({ text: "O'chirildi 🗑" });
+
+  const list = getTasks(userId);
+
+  if (list.length === 0) {
+    await ctx.editMessageText("Hamma vazifalar bajarildi! 🎉");
+    return;
+  }
+
+  await ctx.editMessageText(LIST_TITLE, {
+    reply_markup: buildTaskKeyboard(list, page),
+  });
+});
+
+bot.callbackQuery(/^toggle-(\d+)-(\d+)$/, async (ctx) => {
+  const userId = ctx.from.id;
+  const taskId = Number(ctx.match[1]);
+  const page = Number(ctx.match[2]);
+
+  db.prepare(
+    "UPDATE tasks SET done = 1 - done WHERE id = ? AND user_id = ?",
+  ).run(taskId, userId);
+
+  await ctx.answerCallbackQuery();
+
+  const list = getTasks(userId);
+
+  await ctx.editMessageText(LIST_TITLE, {
+    reply_markup: buildTaskKeyboard(list, page),
+  });
+});
+
+bot.callbackQuery(/^page-(\d+)$/, async (ctx) => {
+  const userId = ctx.from.id;
+  const page = Number(ctx.match[1]);
+
+  const list = getTasks(userId);
+
+  await ctx.answerCallbackQuery();
+  await ctx.editMessageText(LIST_TITLE, {
+    reply_markup: buildTaskKeyboard(list, page),
+  });
+});
+
+bot.callbackQuery("noop", (ctx) => ctx.answerCallbackQuery());
+
+bot.callbackQuery("clear-all", async (ctx) => {
+  db.prepare("DELETE FROM tasks WHERE user_id = ?").run(ctx.from.id);
+
+  await ctx.answerCallbackQuery({ text: "Tozalandi 🧹" });
+  await ctx.editMessageText("Ro'yxat tozalandi 🧹");
 });

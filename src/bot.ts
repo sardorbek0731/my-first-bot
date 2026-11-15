@@ -1,12 +1,8 @@
 import { bot } from "./bot-instance";
-import { db, getTasks, type Task } from "./db";
-import { formatDue, isOverdue, parseDue, toIsoDate } from "./dates";
+import { db } from "./db";
+import { formatDue, parseDue, toIsoDate } from "./dates";
 import "./handlers/basic";
-import {
-  LIST_TITLE,
-  MAX_TASK_LENGTH,
-  buildTaskKeyboard,
-} from "./handlers/tasks";
+import { MAX_TASK_LENGTH } from "./handlers/tasks";
 
 function escapeHtml(text: string): string {
   return text
@@ -64,79 +60,6 @@ bot.on("message:text", (ctx) => {
   }
 
   return ctx.reply("Komanda tanlang: /help");
-});
-
-bot.callbackQuery(/^meva-(.+)$/, async (ctx) => {
-  const mevaRaw = ctx.match[1]; // Masalan: "olma"
-
-  // Birinchi harfni katta, qolganini kichik qilish
-  const meva = mevaRaw.charAt(0).toUpperCase() + mevaRaw.slice(1).toLowerCase(); // Masalan: "Olma"
-
-  await ctx.answerCallbackQuery();
-  await ctx.editMessageText(`Siz tanladingiz: ${meva} ✅`);
-});
-
-bot.callbackQuery(/^del-(\d+)-(\d+)$/, async (ctx) => {
-  const userId = ctx.from.id;
-  const taskId = Number(ctx.match[1]);
-  const page = Number(ctx.match[2]);
-
-  db.prepare("DELETE FROM tasks WHERE id = ? AND user_id = ?").run(
-    taskId,
-    userId,
-  );
-
-  await ctx.answerCallbackQuery({ text: "O'chirildi 🗑" });
-
-  const list = getTasks(userId);
-
-  if (list.length === 0) {
-    await ctx.editMessageText("Hamma vazifalar bajarildi! 🎉");
-    return;
-  }
-
-  await ctx.editMessageText(LIST_TITLE, {
-    reply_markup: buildTaskKeyboard(list, page),
-  });
-});
-
-bot.callbackQuery(/^toggle-(\d+)-(\d+)$/, async (ctx) => {
-  const userId = ctx.from.id;
-  const taskId = Number(ctx.match[1]);
-  const page = Number(ctx.match[2]);
-
-  db.prepare(
-    "UPDATE tasks SET done = 1 - done WHERE id = ? AND user_id = ?",
-  ).run(taskId, userId);
-
-  await ctx.answerCallbackQuery();
-
-  const list = getTasks(userId);
-
-  await ctx.editMessageText(LIST_TITLE, {
-    reply_markup: buildTaskKeyboard(list, page),
-  });
-});
-
-bot.callbackQuery(/^page-(\d+)$/, async (ctx) => {
-  const userId = ctx.from.id;
-  const page = Number(ctx.match[1]);
-
-  const list = getTasks(userId);
-
-  await ctx.answerCallbackQuery();
-  await ctx.editMessageText(LIST_TITLE, {
-    reply_markup: buildTaskKeyboard(list, page),
-  });
-});
-
-bot.callbackQuery("noop", (ctx) => ctx.answerCallbackQuery());
-
-bot.callbackQuery("clear-all", async (ctx) => {
-  db.prepare("DELETE FROM tasks WHERE user_id = ?").run(ctx.from.id);
-
-  await ctx.answerCallbackQuery({ text: "Tozalandi 🧹" });
-  await ctx.editMessageText("Ro'yxat tozalandi 🧹");
 });
 
 bot.catch((err) => {
