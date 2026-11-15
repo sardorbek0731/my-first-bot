@@ -36,18 +36,42 @@ function escapeHtml(text: string): string {
     .replaceAll(">", "&gt;");
 }
 
-function buildTaskKeyboard(list: Task[]): InlineKeyboard {
+const PAGE_SIZE = 5;
+
+function paginate<T>(items: T[], page: number) {
+  const totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
+  const current = Math.min(Math.max(page, 1), totalPages);
+  const start = (current - 1) * PAGE_SIZE;
+
+  return {
+    items: items.slice(start, start + PAGE_SIZE),
+    page: current,
+    totalPages,
+  };
+}
+
+function buildTaskKeyboard(list: Task[], page = 1): InlineKeyboard {
+  const view = paginate(list, page);
   const keyboard = new InlineKeyboard();
-  list.forEach((task) => {
+
+  view.items.forEach((task) => {
     const mark = task.done ? "✅" : "⬜";
     keyboard
       .text(
         `${mark} ${task.text}${task.due ? ` (${task.due})` : ""}`,
-        `toggle-${task.id}`,
+        `toggle-${task.id}-${view.page}`,
       )
-      .text("🗑", `del-${task.id}`)
+      .text("🗑", `del-${task.id}-${view.page}`)
       .row();
   });
+
+  if (view.totalPages > 1) {
+    keyboard
+      .text("◀️", `page-${view.page - 1}`)
+      .text(`${view.page}/${view.totalPages}`, "noop")
+      .text("▶️", `page-${view.page + 1}`)
+      .row();
+  }
 
   return keyboard.text("🗑 Hammasini o'chirish", "clear-all");
 }
@@ -183,9 +207,10 @@ bot.callbackQuery(/^meva-(.+)$/, async (ctx) => {
   await ctx.editMessageText(`Siz tanladingiz: ${meva} ✅`);
 });
 
-bot.callbackQuery(/^del-(\d+)$/, async (ctx) => {
+bot.callbackQuery(/^del-(\d+)-(\d+)$/, async (ctx) => {
   const userId = ctx.from.id;
   const taskId = Number(ctx.match[1]);
+  const page = Number(ctx.match[2]);
 
   db.prepare("DELETE FROM tasks WHERE id = ? AND user_id = ?").run(
     taskId,
@@ -206,13 +231,14 @@ bot.callbackQuery(/^del-(\d+)$/, async (ctx) => {
   }
 
   await ctx.editMessageText(LIST_TITLE, {
-    reply_markup: buildTaskKeyboard(list),
+    reply_markup: buildTaskKeyboard(list, page),
   });
 });
 
-bot.callbackQuery(/^toggle-(\d+)$/, async (ctx) => {
+bot.callbackQuery(/^toggle-(\d+)-(\d+)$/, async (ctx) => {
   const userId = ctx.from.id;
   const taskId = Number(ctx.match[1]);
+  const page = Number(ctx.match[2]);
 
   db.prepare(
     "UPDATE tasks SET done = 1 - done WHERE id = ? AND user_id = ?",
@@ -227,9 +253,26 @@ bot.callbackQuery(/^toggle-(\d+)$/, async (ctx) => {
     .all(userId) as Task[];
 
   await ctx.editMessageText(LIST_TITLE, {
-    reply_markup: buildTaskKeyboard(list),
+    reply_markup: buildTaskKeyboard(list, page),
   });
 });
+
+bot.callbackQuery(/^page-(\d+)$/, async (ctx) => {
+  const page = Number(ctx.match[1]);
+
+  const list = db
+    .prepare(
+      "SELECT id, text, due, done FROM tasks WHERE user_id = ? ORDER BY id",
+    )
+    .all(ctx.from.id) as Task[];
+
+  await ctx.answerCallbackQuery();
+  await ctx.editMessageText(LIST_TITLE, {
+    reply_markup: buildTaskKeyboard(list, page),
+  });
+});
+
+bot.callbackQuery("noop", (ctx) => ctx.answerCallbackQuery());
 
 bot.callbackQuery("clear-all", async (ctx) => {
   db.prepare("DELETE FROM tasks WHERE user_id = ?").run(ctx.from.id);
