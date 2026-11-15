@@ -36,6 +36,42 @@ function escapeHtml(text: string): string {
     .replaceAll(">", "&gt;");
 }
 
+function toIsoDate(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+
+  return `${y}-${m}-${d}`;
+}
+
+// Foydalanuvchi matnini "YYYY-MM-DD" ga o'giradi. Noto'g'ri bo'lsa: undefined.
+function parseDue(input: string): string | undefined {
+  const text = input.trim().toLowerCase();
+
+  if (text === "bugun" || text === "ertaga") {
+    const date = new Date();
+
+    if (text === "ertaga") date.setDate(date.getDate() + 1);
+
+    return toIsoDate(date);
+  }
+
+  const match = text.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+  if (!match) return undefined;
+
+  const day = Number(match[1]);
+  const month = Number(match[2]);
+  const year = Number(match[3]);
+
+  const date = new Date(year, month - 1, day);
+  const isReal =
+    date.getFullYear() === year &&
+    date.getMonth() === month - 1 &&
+    date.getDate() === day;
+
+  return isReal ? toIsoDate(date) : undefined;
+}
+
 const PAGE_SIZE = 5;
 
 function paginate<T>(items: T[], page: number) {
@@ -180,7 +216,17 @@ bot.on("message:text", (ctx) => {
       return ctx.reply("Xatolik yuz berdi, /new dan qayta boshlang.");
     }
 
-    const due = input === "-" ? null : input;
+    let due: string | null = null;
+
+    if (input !== "-") {
+      const parsed = parseDue(input);
+      if (!parsed) {
+        return ctx.reply(
+          "Sana tushunarsiz. Masalan: 15.11.2026, bugun yoki ertaga (muddatsiz: -):",
+        );
+      }
+      due = parsed;
+    }
 
     db.prepare("INSERT INTO tasks (user_id, text, due) VALUES (?, ?, ?)").run(
       ctx.from.id,
