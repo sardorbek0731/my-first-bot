@@ -370,6 +370,7 @@ async function main() {
   ]);
 
   console.log("Bot ishga tushdi ✅");
+  void sendReminders();
   setInterval(sendReminders, 60 * 1000);
   await bot.start();
 }
