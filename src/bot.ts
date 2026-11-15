@@ -2,6 +2,7 @@ import { InlineKeyboard } from "grammy";
 import { bot } from "./bot-instance";
 import { db, getTasks, type Task } from "./db";
 import { formatDue, isOverdue, parseDue, toIsoDate } from "./dates";
+import "./handlers/basic";
 
 const MAX_TASK_LENGTH = 100;
 const LIST_TITLE = "Vazifalar (nomini bossangiz: bajarildi, 🗑: o'chirish):";
@@ -53,32 +54,6 @@ function buildTaskKeyboard(list: Task[], page = 1): InlineKeyboard {
   return keyboard.text("🗑 Hammasini o'chirish", "clear-all");
 }
 
-bot.command("start", (ctx) => {
-  const keyboard = new InlineKeyboard()
-    .text("🍎 Olma", "meva-olma")
-    .text("🍓 Qulupnay", "meva-qulupnay")
-    .row()
-    .text("🍇 Uzum", "meva-uzum");
-
-  return ctx.reply(
-    `Salom, ${ctx.from?.first_name}! Sevimli mevangizni tanlang:`,
-    { reply_markup: keyboard },
-  );
-});
-
-bot.command("help", (ctx) =>
-  ctx.reply(
-    [
-      "<b>Men nima qila olaman?</b>",
-      "",
-      "/add <i>matn</i> — vazifa qo'shish",
-      "/list — vazifalar ro'yxati",
-      "/start — botni boshlash",
-    ].join("\n"),
-    { parse_mode: "HTML" },
-  ),
-);
-
 bot.command("add", (ctx) => {
   const userId = ctx.from?.id;
   if (!userId) return;
@@ -107,12 +82,6 @@ bot.command("add", (ctx) => {
 bot.command("new", (ctx) => {
   ctx.session.step = "waiting_task";
   return ctx.reply("Vazifa nomini yozing:");
-});
-
-bot.command("cancel", (ctx) => {
-  ctx.session.step = "idle";
-  ctx.session.draftText = undefined;
-  return ctx.reply("Bekor qilindi ❌");
 });
 
 bot.command("list", (ctx) => {
