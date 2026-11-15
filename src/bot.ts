@@ -72,6 +72,15 @@ function parseDue(input: string): string | undefined {
   return isReal ? toIsoDate(date) : undefined;
 }
 
+function formatDue(iso: string): string {
+  const [y, m, d] = iso.split("-");
+  return `${d}.${m}.${y}`;
+}
+
+function isOverdue(iso: string): boolean {
+  return iso < toIsoDate(new Date());
+}
+
 const PAGE_SIZE = 5;
 
 function paginate<T>(items: T[], page: number) {
@@ -91,12 +100,12 @@ function buildTaskKeyboard(list: Task[], page = 1): InlineKeyboard {
   const keyboard = new InlineKeyboard();
 
   view.items.forEach((task) => {
-    const mark = task.done ? "✅" : "⬜";
+    const overdue = task.due && !task.done && isOverdue(task.due);
+    const mark = task.done ? "✅" : overdue ? "⚠️" : "⬜";
+    const dueText = task.due ? ` (${formatDue(task.due)})` : "";
+
     keyboard
-      .text(
-        `${mark} ${task.text}${task.due ? ` (${task.due})` : ""}`,
-        `toggle-${task.id}-${view.page}`,
-      )
+      .text(`${mark} ${task.text}${dueText}`, `toggle-${task.id}-${view.page}`)
       .text("🗑", `del-${task.id}-${view.page}`)
       .row();
   });
@@ -237,7 +246,9 @@ bot.on("message:text", (ctx) => {
     ctx.session.step = "idle";
     ctx.session.draftText = undefined;
 
-    return ctx.reply(`Qo'shildi ✅ ${text}${due ? ` (${due})` : ""}`);
+    return ctx.reply(
+      `Qo'shildi ✅ ${text}${due ? ` (${formatDue(due)})` : ""}`,
+    );
   }
 
   return ctx.reply("Komanda tanlang: /help");
