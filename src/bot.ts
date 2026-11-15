@@ -33,6 +33,20 @@ function escapeHtml(text: string): string {
     .replaceAll(">", "&gt;");
 }
 
+function buildTaskKeyboard(list: Task[]): InlineKeyboard {
+  const keyboard = new InlineKeyboard();
+  list.forEach((task) => {
+    keyboard
+      .text(
+        `❌ ${task.text}${task.due ? ` (${task.due})` : ""}`,
+        `del-${task.id}`,
+      )
+      .row();
+  });
+
+  return keyboard.text("🗑 Hammasini o'chirish", "clear-all");
+}
+
 bot.command("start", (ctx) => {
   const keyboard = new InlineKeyboard()
     .text("🍎 Olma", "meva-olma")
@@ -104,18 +118,8 @@ bot.command("list", (ctx) => {
     return ctx.reply("Vazifalar yo'q. Qo'shish uchun: /add Non olish");
   }
 
-  const keyboard = new InlineKeyboard();
-  list.forEach((task) => {
-    keyboard
-      .text(
-        `❌ ${task.text} ${task.due ? `(${task.due})` : ""}`,
-        `del-${task.id}`,
-      )
-      .row();
-  });
-  keyboard.text("🗑 Hammasini o'chirish", "clear-all");
   return ctx.reply("Sizning vazifalaringiz (o'chirish uchun bosing):", {
-    reply_markup: keyboard,
+    reply_markup: buildTaskKeyboard(list),
   });
 });
 
@@ -182,18 +186,11 @@ bot.callbackQuery(/^del-(\d+)$/, async (ctx) => {
     return;
   }
 
-  const keyboard = new InlineKeyboard();
-  list.forEach((task) => {
-    keyboard
-      .text(
-        `❌ ${task.text} ${task.due ? `(${task.due})` : ""}`,
-        `del-${task.id}`,
-      )
-      .row();
-  });
   await ctx.editMessageText(
     "Sizning vazifalaringiz (o'chirish uchun bosing):",
-    { reply_markup: keyboard },
+    {
+      reply_markup: buildTaskKeyboard(list),
+    },
   );
 });
 
