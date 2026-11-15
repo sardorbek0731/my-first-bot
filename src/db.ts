@@ -1,6 +1,6 @@
 import { DatabaseSync } from "node:sqlite";
 
-export const db = new DatabaseSync("bot.db");
+export const db = new DatabaseSync(process.env.DB_PATH ?? "bot.db");
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS tasks (
@@ -26,7 +26,12 @@ if (!columns.some((c) => c.name === "notified")) {
   db.exec("ALTER TABLE tasks ADD COLUMN notified INTEGER NOT NULL DEFAULT 0");
 }
 
-export type Task = { id: number; text: string; due: string | null; done: number };
+export type Task = {
+  id: number;
+  text: string;
+  due: string | null;
+  done: number;
+};
 
 export function getTasks(userId: number): Task[] {
   return db
