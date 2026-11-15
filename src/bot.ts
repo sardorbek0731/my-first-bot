@@ -25,7 +25,9 @@ bot.use(
 );
 
 const MAX_TASK_LENGTH = 100;
-type Task = { id: number; text: string; due: string | null };
+const LIST_TITLE = "Vazifalar (nomini bossangiz: bajarildi, 🗑: o'chirish):";
+
+type Task = { id: number; text: string; due: string | null; done: number };
 
 function escapeHtml(text: string): string {
   return text
@@ -37,11 +39,13 @@ function escapeHtml(text: string): string {
 function buildTaskKeyboard(list: Task[]): InlineKeyboard {
   const keyboard = new InlineKeyboard();
   list.forEach((task) => {
+    const mark = task.done ? "✅" : "⬜";
     keyboard
       .text(
-        `❌ ${task.text}${task.due ? ` (${task.due})` : ""}`,
-        `del-${task.id}`,
+        `${mark} ${task.text}${task.due ? ` (${task.due})` : ""}`,
+        `toggle-${task.id}`,
       )
+      .text("🗑", `del-${task.id}`)
       .row();
   });
 
@@ -116,14 +120,16 @@ bot.command("list", (ctx) => {
   if (!userId) return;
 
   const list = db
-    .prepare("SELECT id, text, due FROM tasks WHERE user_id = ? ORDER BY id")
+    .prepare(
+      "SELECT id, text, due, done FROM tasks WHERE user_id = ? ORDER BY id",
+    )
     .all(userId) as Task[];
 
   if (list.length === 0) {
     return ctx.reply("Vazifalar yo'q. Qo'shish uchun: /add Non olish");
   }
 
-  return ctx.reply("Sizning vazifalaringiz (o'chirish uchun bosing):", {
+  return ctx.reply(LIST_TITLE, {
     reply_markup: buildTaskKeyboard(list),
   });
 });
@@ -189,7 +195,9 @@ bot.callbackQuery(/^del-(\d+)$/, async (ctx) => {
   await ctx.answerCallbackQuery({ text: "O'chirildi 🗑" });
 
   const list = db
-    .prepare("SELECT id, text, due FROM tasks WHERE user_id = ? ORDER BY id")
+    .prepare(
+      "SELECT id, text, due, done FROM tasks WHERE user_id = ? ORDER BY id",
+    )
     .all(userId) as Task[];
 
   if (list.length === 0) {
@@ -197,12 +205,30 @@ bot.callbackQuery(/^del-(\d+)$/, async (ctx) => {
     return;
   }
 
-  await ctx.editMessageText(
-    "Sizning vazifalaringiz (o'chirish uchun bosing):",
-    {
-      reply_markup: buildTaskKeyboard(list),
-    },
-  );
+  await ctx.editMessageText(LIST_TITLE, {
+    reply_markup: buildTaskKeyboard(list),
+  });
+});
+
+bot.callbackQuery(/^toggle-(\d+)$/, async (ctx) => {
+  const userId = ctx.from.id;
+  const taskId = Number(ctx.match[1]);
+
+  db.prepare(
+    "UPDATE tasks SET done = 1 - done WHERE id = ? AND user_id = ?",
+  ).run(taskId, userId);
+
+  await ctx.answerCallbackQuery();
+
+  const list = db
+    .prepare(
+      "SELECT id, text, due, done FROM tasks WHERE user_id = ? ORDER BY id",
+    )
+    .all(userId) as Task[];
+
+  await ctx.editMessageText(LIST_TITLE, {
+    reply_markup: buildTaskKeyboard(list),
+  });
 });
 
 bot.callbackQuery("clear-all", async (ctx) => {
