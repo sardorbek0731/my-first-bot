@@ -24,6 +24,7 @@ bot.use(
   }),
 );
 
+const MAX_TASK_LENGTH = 100;
 type Task = { id: number; text: string; due: string | null };
 
 function escapeHtml(text: string): string {
@@ -82,6 +83,10 @@ bot.command("add", (ctx) => {
     return ctx.reply("Vazifa matnini yozing. Masalan: /add Non olish");
   }
 
+  if (text.length > MAX_TASK_LENGTH) {
+    return ctx.reply(`Juda uzun. Eng ko'pi ${MAX_TASK_LENGTH} belgi.`);
+  }
+
   db.prepare("INSERT INTO tasks (user_id, text) VALUES (?, ?)").run(
     userId,
     text,
@@ -127,6 +132,12 @@ bot.on("message:text", (ctx) => {
   const input = ctx.message.text.trim();
 
   if (ctx.session.step === "waiting_task") {
+    if (input.length > MAX_TASK_LENGTH) {
+      return ctx.reply(
+        `Juda uzun. Eng ko'pi ${MAX_TASK_LENGTH} belgi (hozir ${input.length}). Qisqaroq yozing:`,
+      );
+    }
+
     ctx.session.draftText = input;
     ctx.session.step = "waiting_due";
     return ctx.reply("Muddatini yozing (muddat yo'q bo'lsa: -):");
