@@ -95,6 +95,16 @@ function paginate<T>(items: T[], page: number) {
   };
 }
 
+function getTasks(userId: number): Task[] {
+  return db
+    .prepare(
+      `SELECT id, text, due, done FROM tasks
+       WHERE user_id = ?
+       ORDER BY done, due IS NULL, due, id`,
+    )
+    .all(userId) as Task[];
+}
+
 function buildTaskKeyboard(list: Task[], page = 1): InlineKeyboard {
   const view = paginate(list, page);
   const keyboard = new InlineKeyboard();
@@ -188,11 +198,7 @@ bot.command("list", (ctx) => {
   const userId = ctx.from?.id;
   if (!userId) return;
 
-  const list = db
-    .prepare(
-      "SELECT id, text, due, done FROM tasks WHERE user_id = ? ORDER BY id",
-    )
-    .all(userId) as Task[];
+  const list = getTasks(userId);
 
   if (list.length === 0) {
     return ctx.reply("Vazifalar yo'q. Qo'shish uchun: /add Non olish");
@@ -276,11 +282,7 @@ bot.callbackQuery(/^del-(\d+)-(\d+)$/, async (ctx) => {
 
   await ctx.answerCallbackQuery({ text: "O'chirildi 🗑" });
 
-  const list = db
-    .prepare(
-      "SELECT id, text, due, done FROM tasks WHERE user_id = ? ORDER BY id",
-    )
-    .all(userId) as Task[];
+  const list = getTasks(userId);
 
   if (list.length === 0) {
     await ctx.editMessageText("Hamma vazifalar bajarildi! 🎉");
@@ -303,11 +305,7 @@ bot.callbackQuery(/^toggle-(\d+)-(\d+)$/, async (ctx) => {
 
   await ctx.answerCallbackQuery();
 
-  const list = db
-    .prepare(
-      "SELECT id, text, due, done FROM tasks WHERE user_id = ? ORDER BY id",
-    )
-    .all(userId) as Task[];
+  const list = getTasks(userId);
 
   await ctx.editMessageText(LIST_TITLE, {
     reply_markup: buildTaskKeyboard(list, page),
@@ -315,13 +313,10 @@ bot.callbackQuery(/^toggle-(\d+)-(\d+)$/, async (ctx) => {
 });
 
 bot.callbackQuery(/^page-(\d+)$/, async (ctx) => {
+  const userId = ctx.from.id;
   const page = Number(ctx.match[1]);
 
-  const list = db
-    .prepare(
-      "SELECT id, text, due, done FROM tasks WHERE user_id = ? ORDER BY id",
-    )
-    .all(ctx.from.id) as Task[];
+  const list = getTasks(userId);
 
   await ctx.answerCallbackQuery();
   await ctx.editMessageText(LIST_TITLE, {
