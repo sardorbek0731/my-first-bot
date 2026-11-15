@@ -52,7 +52,7 @@ bot.command("add", (ctx) => {
 
   const text = ctx.match.trim();
   if (!text) {
-    return ctx.reply("Vazifa matnini yozing. Masalan: /add Non olish");
+    return ctx.reply("Vazifa matnini yozing. Masalan: /add Dars qilish");
   }
 
   if (text.length > MAX_TASK_LENGTH) {
@@ -84,7 +84,7 @@ bot.command("list", (ctx) => {
   const list = getTasks(userId);
 
   if (list.length === 0) {
-    return ctx.reply("Vazifalar yo'q. Qo'shish uchun: /add Non olish");
+    return ctx.reply("Vazifalar yo'q. Qo'shish uchun: /new");
   }
 
   return ctx.reply(LIST_TITLE, {
@@ -153,4 +153,17 @@ bot.callbackQuery("clear-all", async (ctx) => {
 
   await ctx.answerCallbackQuery({ text: "Tozalandi 🧹" });
   await ctx.editMessageText("Ro'yxat tozalandi 🧹");
+});
+
+bot.callbackQuery("menu-list", async (ctx) => {
+  await ctx.answerCallbackQuery();
+  ctx.session.step = "idle";
+
+  const list = getTasks(ctx.from.id);
+  if (list.length === 0) {
+    await ctx.reply("Vazifalar yo'q. Qo'shish uchun: /new");
+    return;
+  }
+
+  await ctx.reply(LIST_TITLE, { reply_markup: buildTaskKeyboard(list) });
 });

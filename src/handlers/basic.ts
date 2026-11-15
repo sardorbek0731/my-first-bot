@@ -1,31 +1,34 @@
 import { InlineKeyboard } from "grammy";
 import { bot } from "../bot-instance";
 
+const HELP_TEXT = [
+  "<b>Men nima qila olaman?</b>",
+  "",
+  "/new — vazifa qo'shish (nom, keyin muddat)",
+  "/add <i>matn</i> — tezkor qo'shish (muddatsiz)",
+  "/list — vazifalar ro'yxati",
+  "/cancel — amalni bekor qilish",
+  "",
+  "Muddat: <code>15.11.2026</code>, <code>bugun</code> yoki <code>ertaga</code>.",
+  "Muddati kelganda o'zim eslataman ⏰",
+].join("\n");
+
 bot.command("start", (ctx) => {
   const keyboard = new InlineKeyboard()
-    .text("🍎 Olma", "meva-olma")
-    .text("🍓 Qulupnay", "meva-qulupnay")
+    .text("➕ Yangi vazifa", "menu-new")
+    .text("📋 Vazifalarim", "menu-list")
     .row()
-    .text("🍇 Uzum", "meva-uzum");
+    .text("ℹ️ Yordam", "menu-help");
 
   return ctx.reply(
-    `Salom, ${ctx.from?.first_name}! Sevimli mevangizni tanlang:`,
+    `Salom, ${ctx.from?.first_name}! 👋\n\n` +
+      "Men vazifalar va eslatmalar botiman.\n" +
+      "Vazifa qo'shing, muddat belgilang, vaqti kelganda o'zim eslataman.",
     { reply_markup: keyboard },
   );
 });
 
-bot.command("help", (ctx) =>
-  ctx.reply(
-    [
-      "<b>Men nima qila olaman?</b>",
-      "",
-      "/add <i>matn</i> — vazifa qo'shish",
-      "/list — vazifalar ro'yxati",
-      "/start — botni boshlash",
-    ].join("\n"),
-    { parse_mode: "HTML" },
-  ),
-);
+bot.command("help", (ctx) => ctx.reply(HELP_TEXT, { parse_mode: "HTML" }));
 
 bot.command("cancel", (ctx) => {
   ctx.session.step = "idle";
@@ -33,12 +36,13 @@ bot.command("cancel", (ctx) => {
   return ctx.reply("Bekor qilindi ❌");
 });
 
-bot.callbackQuery(/^meva-(.+)$/, async (ctx) => {
-  const mevaRaw = ctx.match[1]; // Masalan: "olma"
-
-  // Birinchi harfni katta, qolganini kichik qilish
-  const meva = mevaRaw.charAt(0).toUpperCase() + mevaRaw.slice(1).toLowerCase(); // Masalan: "Olma"
-
+bot.callbackQuery("menu-help", async (ctx) => {
   await ctx.answerCallbackQuery();
-  await ctx.editMessageText(`Siz tanladingiz: ${meva} ✅`);
+  await ctx.reply(HELP_TEXT, { parse_mode: "HTML" });
+});
+
+bot.callbackQuery("menu-new", async (ctx) => {
+  await ctx.answerCallbackQuery();
+  ctx.session.step = "waiting_task";
+  await ctx.reply("Vazifa nomini yozing:");
 });

@@ -12,9 +12,9 @@ async function main() {
   await bot.api.setMyCommands([
     { command: "start", description: "Botni boshlash" },
     { command: "help", description: "Yordam" },
-    { command: "add", description: "Vazifa qo'shish: /add matn" },
+    { command: "new", description: "Yangi vazifa (nom va muddat)" },
+    { command: "add", description: "Tezkor qo'shish: /add matn" },
     { command: "list", description: "Vazifalar ro'yxati" },
-    { command: "new", description: "Vazifa qo'shish (bosqichma-bosqich)" },
     { command: "cancel", description: "Amalni bekor qilish" },
   ]);
 
