@@ -1,29 +1,7 @@
-import {
-  Bot,
-  Context,
-  InlineKeyboard,
-  session,
-  type SessionFlavor,
-} from "grammy";
+import { InlineKeyboard } from "grammy";
+import { bot } from "./bot-instance";
 import { db, getTasks, type Task } from "./db";
 import { formatDue, isOverdue, parseDue, toIsoDate } from "./dates";
-
-const token = process.env.BOT_TOKEN;
-if (!token) throw new Error("BOT_TOKEN topilmadi (.env faylni tekshiring)");
-
-type SessionData = {
-  step: "idle" | "waiting_task" | "waiting_due";
-  draftText?: string;
-};
-type MyContext = Context & SessionFlavor<SessionData>;
-
-const bot = new Bot<MyContext>(token);
-
-bot.use(
-  session({
-    initial: (): SessionData => ({ step: "idle" }),
-  }),
-);
 
 const MAX_TASK_LENGTH = 100;
 const LIST_TITLE = "Vazifalar (nomini bossangiz: bajarildi, 🗑: o'chirish):";
