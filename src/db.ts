@@ -25,3 +25,15 @@ if (!columns.some((c) => c.name === "done")) {
 if (!columns.some((c) => c.name === "notified")) {
   db.exec("ALTER TABLE tasks ADD COLUMN notified INTEGER NOT NULL DEFAULT 0");
 }
+
+export type Task = { id: number; text: string; due: string | null; done: number };
+
+export function getTasks(userId: number): Task[] {
+  return db
+    .prepare(
+      `SELECT id, text, due, done FROM tasks
+       WHERE user_id = ?
+       ORDER BY done, due IS NULL, due, id`,
+    )
+    .all(userId) as Task[];
+}

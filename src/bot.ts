@@ -5,7 +5,7 @@ import {
   session,
   type SessionFlavor,
 } from "grammy";
-import { db } from "./db";
+import { db, getTasks, type Task } from "./db";
 import { formatDue, isOverdue, parseDue, toIsoDate } from "./dates";
 
 const token = process.env.BOT_TOKEN;
@@ -28,8 +28,6 @@ bot.use(
 const MAX_TASK_LENGTH = 100;
 const LIST_TITLE = "Vazifalar (nomini bossangiz: bajarildi, 🗑: o'chirish):";
 
-type Task = { id: number; text: string; due: string | null; done: number };
-
 function escapeHtml(text: string): string {
   return text
     .replaceAll("&", "&amp;")
@@ -49,16 +47,6 @@ function paginate<T>(items: T[], page: number) {
     page: current,
     totalPages,
   };
-}
-
-function getTasks(userId: number): Task[] {
-  return db
-    .prepare(
-      `SELECT id, text, due, done FROM tasks
-       WHERE user_id = ?
-       ORDER BY done, due IS NULL, due, id`,
-    )
-    .all(userId) as Task[];
 }
 
 function buildTaskKeyboard(list: Task[], page = 1): InlineKeyboard {
