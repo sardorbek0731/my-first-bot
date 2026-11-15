@@ -21,3 +21,7 @@ if (!columns.some((c) => c.name === "due")) {
 if (!columns.some((c) => c.name === "done")) {
   db.exec("ALTER TABLE tasks ADD COLUMN done INTEGER NOT NULL DEFAULT 0");
 }
+
+if (!columns.some((c) => c.name === "notified")) {
+  db.exec("ALTER TABLE tasks ADD COLUMN notified INTEGER NOT NULL DEFAULT 0");
+}
